@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_PRIVATE }}
+      DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_NAME }}
 
     steps:
     - name: Checkout code
@@ -20,6 +20,7 @@ jobs:
 
     - name: Download Gist file
       run: |
+        echo "::add-mask::${{ github.event.inputs.gist_raw_link }}"
         curl -L ${{ github.event.inputs.gist_raw_link }} -o config.env
 
     - name: Login to Docker Hub
