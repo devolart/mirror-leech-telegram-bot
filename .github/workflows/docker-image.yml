@@ -2,17 +2,25 @@ name: Build and Push Docker Image
 
 on:
   workflow_dispatch:  # This event triggers the workflow manually
+      inputs:
+        gist_raw_link:
+          description: 'Enter the raw link of the GitHub Gist file'
+          required: true
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
     env:
-      DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_NAME }}
+      DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_IMAGE_PRIVATE }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+
+    - name: Download Gist file
+      run: |
+        curl -L ${{ github.event.inputs.gist_raw_link }} -o config.env
 
     - name: Login to Docker Hub
       run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
