@@ -1,7 +1,7 @@
 from hashlib import sha256
 from http.cookiejar import MozillaCookieJar
 from json import loads
-from os import path
+from os import path as ospath
 from re import findall, match, search
 from time import sleep
 from urllib.parse import parse_qs, urlparse
@@ -55,6 +55,8 @@ def direct_link_generator(link):
         return gofile(link)
     elif "send.cm" in domain:
         return send_cm(link)
+    elif "tmpsend.com" in domain:
+        return tmpsend(link)
     elif "easyupload.io" in domain:
         return easyupload(link)
     elif "streamvid.net" in domain:
@@ -476,7 +478,7 @@ def uploadee(url):
 
 
 def terabox(url):
-    if not path.isfile("terabox.txt"):
+    if not ospath.isfile("terabox.txt"):
         raise DirectDownloadLinkException("ERROR: terabox.txt not found")
     try:
         jar = MozillaCookieJar("terabox.txt")
@@ -515,13 +517,13 @@ def terabox(url):
                 if not folderPath:
                     if not details["title"]:
                         details["title"] = content["server_filename"]
-                        newFolderPath = path.join(details["title"])
+                        newFolderPath = ospath.join(details["title"])
                     else:
-                        newFolderPath = path.join(
+                        newFolderPath = ospath.join(
                             details["title"], content["server_filename"]
                         )
                 else:
-                    newFolderPath = path.join(folderPath, content["server_filename"])
+                    newFolderPath = ospath.join(folderPath, content["server_filename"])
                 __fetch_links(session, content["path"], newFolderPath)
             else:
                 if not folderPath:
@@ -531,7 +533,7 @@ def terabox(url):
                 item = {
                     "url": content["dlink"],
                     "filename": content["server_filename"],
-                    "path": path.join(folderPath),
+                    "path": ospath.join(folderPath),
                 }
                 if "size" in content:
                     size = content["size"]
@@ -820,9 +822,9 @@ def linkBox(url: str):
         for content in contents:
             if content["type"] == "dir" and "url" not in content:
                 if not folderPath:
-                    newFolderPath = path.join(details["title"], content["name"])
+                    newFolderPath = ospath.join(details["title"], content["name"])
                 else:
-                    newFolderPath = path.join(folderPath, content["name"])
+                    newFolderPath = ospath.join(folderPath, content["name"])
                 if not details["title"]:
                     details["title"] = content["name"]
                 __fetch_links(session, content["id"], newFolderPath)
@@ -835,7 +837,7 @@ def linkBox(url: str):
                 ):
                     filename += f".{sub_type}"
                 item = {
-                    "path": path.join(folderPath),
+                    "path": ospath.join(folderPath),
                     "filename": filename,
                     "url": content["url"],
                 }
@@ -914,15 +916,15 @@ def gofile(url):
                 if not content["public"]:
                     continue
                 if not folderPath:
-                    newFolderPath = path.join(details["title"], content["name"])
+                    newFolderPath = ospath.join(details["title"], content["name"])
                 else:
-                    newFolderPath = path.join(folderPath, content["name"])
+                    newFolderPath = ospath.join(folderPath, content["name"])
                 __fetch_links(session, content["id"], newFolderPath)
             else:
                 if not folderPath:
                     folderPath = details["title"]
                 item = {
-                    "path": path.join(folderPath),
+                    "path": ospath.join(folderPath),
                     "filename": content["name"],
                     "url": content["link"],
                 }
@@ -1038,9 +1040,9 @@ def mediafireFolder(url):
             folders = _folder_content["folders"]
             for folder in folders:
                 if folderPath:
-                    newFolderPath = path.join(folderPath, folder["name"])
+                    newFolderPath = ospath.join(folderPath, folder["name"])
                 else:
-                    newFolderPath = path.join(folder["name"])
+                    newFolderPath = ospath.join(folder["name"])
                 __get_content(folder["folderkey"], newFolderPath)
             __get_content(folderKey, folderPath, "files")
         else:
@@ -1052,7 +1054,7 @@ def mediafireFolder(url):
                 item["filename"] = file["filename"]
                 if not folderPath:
                     folderPath = details["title"]
-                item["path"] = path.join(folderPath)
+                item["path"] = ospath.join(folderPath)
                 item["url"] = _url
                 if "size" in file:
                     size = file["size"]
@@ -1188,7 +1190,7 @@ def send_cm(url):
         folders = __collectFolders(html_text)
         for folder in folders:
             _html = HTML(cf_bypass(folder["folder_link"]))
-            __writeContents(_html, path.join(folderPath, folder["folder_name"]))
+            __writeContents(_html, ospath.join(folderPath, folder["folder_name"]))
         files = __getFiles(html_text)
         for file in files:
             if not (link := __getFile_link(file["file_id"])):
@@ -1472,3 +1474,17 @@ def pcloud(url):
     if link := findall(r".downloadlink.:..(https:.*)..", res.text):
         return link[0].replace("\/", "/")
     raise DirectDownloadLinkException("ERROR: Direct link not found")
+
+
+def tmpsend(url):
+    pattern = r"https://tmpsend.com/(\w+)$"
+    match = search(pattern, url)
+
+    if match:
+        file_id = match.group(1)
+        referer_url = f"https://tmpsend.com/thank-you?d={file_id}"
+        header = f"Referer: {referer_url}"
+        download_link = f"https://tmpsend.com/download?d={file_id}"
+        return download_link, header
+    else:
+        raise DirectDownloadLinkException("ERROR: Invalid URL format")
