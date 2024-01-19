@@ -1,8 +1,8 @@
 from aiofiles.os import path as aiopath, remove
 from asyncio import sleep, create_subprocess_exec
 from asyncio.subprocess import PIPE
-from secrets import token_urlsafe
 from os import walk, path as ospath
+from secrets import token_urlsafe
 
 from bot import (
     DOWNLOAD_DIR,
@@ -19,19 +19,9 @@ from bot import (
     cpu_eater_lock,
     subprocess_lock,
 )
-from bot.helper.telegram_helper.bot_commands import BotCommands
-from bot.helper.ext_utils.bot_utils import new_task, sync_to_async
-from bot.helper.ext_utils.links_utils import (
-    is_gdrive_id,
-    is_rclone_path,
-    is_gdrive_link,
-    is_telegram_link,
-)
-from bot.helper.telegram_helper.message_utils import (
-    sendMessage,
-    sendStatusMessage,
-    get_tg_link_message,
-)
+from bot.helper.ext_utils.bot_utils import new_task, sync_to_async, getSizeBytes
+from bot.helper.ext_utils.bulk_links import extractBulkLinks
+from bot.helper.ext_utils.exceptions import NotSupportedExtractionArchive
 from bot.helper.ext_utils.files_utils import (
     get_base_name,
     is_first_archive_split,
@@ -40,20 +30,29 @@ from bot.helper.ext_utils.files_utils import (
     get_path_size,
     clean_target,
 )
-from bot.helper.ext_utils.bulk_links import extractBulkLinks
-from bot.helper.ext_utils.media_utils import split_file, get_document_type
+from bot.helper.ext_utils.links_utils import (
+    is_gdrive_id,
+    is_rclone_path,
+    is_gdrive_link,
+    is_telegram_link,
+)
 from bot.helper.ext_utils.media_utils import (
     createThumb,
-    getSplitSizeBytes,
     createSampleVideo,
 )
-from bot.helper.mirror_utils.rclone_utils.list import RcloneList
+from bot.helper.ext_utils.media_utils import split_file, get_document_type
 from bot.helper.mirror_utils.gdrive_utils.list import gdriveList
+from bot.helper.mirror_utils.rclone_utils.list import RcloneList
 from bot.helper.mirror_utils.status_utils.extract_status import ExtractStatus
-from bot.helper.mirror_utils.status_utils.zip_status import ZipStatus
-from bot.helper.mirror_utils.status_utils.split_status import SplitStatus
 from bot.helper.mirror_utils.status_utils.sample_video_status import SampleVideoStatus
-from bot.helper.ext_utils.exceptions import NotSupportedExtractionArchive
+from bot.helper.mirror_utils.status_utils.split_status import SplitStatus
+from bot.helper.mirror_utils.status_utils.zip_status import ZipStatus
+from bot.helper.telegram_helper.bot_commands import BotCommands
+from bot.helper.telegram_helper.message_utils import (
+    sendMessage,
+    sendStatusMessage,
+    get_tg_link_message,
+)
 
 
 class TaskConfig:
@@ -163,28 +162,15 @@ class TaskConfig:
                 or "stop_duplicate" not in self.user_dict
                 and config_dict["STOP_DUPLICATE"]
             )
-            default_upload = self.user_dict.get("default_upload", "")
-            if (
-                not self.upDest
-                and (
-                    default_upload == "rc"
-                    or not default_upload
-                    and config_dict["DEFAULT_UPLOAD"] == "rc"
-                )
-                or self.upDest == "rc"
-            ):
+            default_upload = (
+                self.user_dict.get("default_upload", "")
+                or config_dict["DEFAULT_UPLOAD"]
+            )
+            if (not self.upDest and default_upload == "rc") or self.upDest == "rc":
                 self.upDest = (
                     self.user_dict.get("rclone_path") or config_dict["RCLONE_PATH"]
                 )
-            if (
-                not self.upDest
-                and (
-                    default_upload == "gd"
-                    or not default_upload
-                    and config_dict["DEFAULT_UPLOAD"] == "gd"
-                )
-                or self.upDest == "gd"
-            ):
+            elif (not self.upDest and default_upload == "gd") or self.upDest == "gd":
                 self.upDest = (
                     self.user_dict.get("gdrive_id") or config_dict["GDRIVE_ID"]
                 )
@@ -254,7 +240,7 @@ class TaskConfig:
                 if self.splitSize.isdigit():
                     self.splitSize = int(self.splitSize)
                 else:
-                    self.splitSize = getSplitSizeBytes(self.splitSize)
+                    self.splitSize = getSizeBytes(self.splitSize)
             self.splitSize = (
                 self.splitSize
                 or self.user_dict.get("split_size")
@@ -274,10 +260,10 @@ class TaskConfig:
             )
             if not isinstance(self.upDest, int):
                 if self.upDest.startswith("b:"):
-                    self.upDest = self.upDest.lstrip("b:")
+                    self.upDest = self.upDest.replace("b:", "", 1)
                     self.userTransmission = False
                 elif self.upDest.startswith("u:"):
-                    self.upDest = self.upDest.lstrip("u:")
+                    self.upDest = self.upDest.replace("u:", "", 1)
                     self.userTransmission = IS_PREMIUM_USER
                 if self.upDest.isdigit() or self.upDest.startswith("-"):
                     self.upDest = int(self.upDest)
@@ -618,10 +604,9 @@ class TaskConfig:
                     if not checked:
                         checked = True
                         LOGGER.info(f"Creating Sample video: {self.name}")
-                    res = await createSampleVideo(
+                    return await createSampleVideo(
                         self, dl_path, sample_duration, part_duration, True
                     )
-                    return res
             else:
                 for dirpath, _, files in await sync_to_async(
                     walk, dl_path, topdown=False

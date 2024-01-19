@@ -1,10 +1,6 @@
-from time import time
 from asyncio import Lock
+from time import time
 
-from bot.helper.mirror_utils.status_utils.telegram_status import TelegramStatus
-from bot.helper.mirror_utils.status_utils.queue_status import QueueStatus
-from bot.helper.telegram_helper.message_utils import sendStatusMessage
-from bot.helper.ext_utils.task_manager import is_queued, stop_duplicate_check
 from bot import (
     LOGGER,
     task_dict,
@@ -14,6 +10,10 @@ from bot import (
     bot,
     user,
 )
+from bot.helper.ext_utils.task_manager import check_running_tasks, stop_duplicate_check
+from bot.helper.mirror_utils.status_utils.queue_status import QueueStatus
+from bot.helper.mirror_utils.status_utils.telegram_status import TelegramStatus
+from bot.helper.telegram_helper.message_utils import sendStatusMessage
 
 global_lock = Lock()
 GLOBAL_GID = set()
@@ -134,7 +134,7 @@ class TelegramDownloadHelper:
                     await self._listener.onDownloadError(msg, button)
                     return
 
-                add_to_queue, event = await is_queued(self._listener.mid)
+                add_to_queue, event = await check_running_tasks(self._listener.mid)
                 if add_to_queue:
                     LOGGER.info(f"Added to Queue/Download: {self._listener.name}")
                     async with task_dict_lock:

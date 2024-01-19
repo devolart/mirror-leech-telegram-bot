@@ -1,11 +1,10 @@
-from time import time
 from html import escape
 from psutil import virtual_memory, cpu_percent, disk_usage
+from time import time
 
 from bot import DOWNLOAD_DIR, task_dict, task_dict_lock, botStartTime, config_dict
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.button_build import ButtonMaker
-
 
 SIZE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
 
@@ -132,9 +131,9 @@ def get_readable_message(sid, is_user, page_no=1, status="All", page_step=1):
     ):
         tstatus = task.status()
         if task.listener.isSuperChat:
-            msg += f"<b>{index+start_position}.<a href='{task.listener.message.link}'>{tstatus}</a>: </b>"
+            msg += f"<b>{index + start_position}.<a href='{task.listener.message.link}'>{tstatus}</a>: </b>"
         else:
-            msg += f"<b>{index+start_position}.{tstatus}: </b>"
+            msg += f"<b>{index + start_position}.{tstatus}: </b>"
         msg += f"<code>{escape(f'{task.name()}')}</code>"
         if tstatus not in [
             MirrorStatus.STATUS_SPLITTING,
