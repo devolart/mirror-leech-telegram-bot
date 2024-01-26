@@ -28,7 +28,7 @@ class gdClone(GoogleDriveHelper):
         if self.listener.upDest.startswith("mtp:") or self.listener.link.startswith(
             "mtp:"
         ):
-            self.token_path = f"tokens/{self.listener.user_id}.pickle"
+            self.token_path = f"tokens/{self.listener.userId}.pickle"
             self.listener.upDest = self.listener.upDest.replace("mtp:", "", 1)
             self.use_sa = False
         elif self.listener.upDest.startswith("tp:"):
@@ -50,7 +50,6 @@ class gdClone(GoogleDriveHelper):
                 None,
                 None,
                 None,
-                None,
             )
         self.service = self.authorize()
         msg = ""
@@ -67,19 +66,18 @@ class gdClone(GoogleDriveHelper):
                     self.service.files().delete(
                         fileId=dir_id, supportsAllDrives=True
                     ).execute()
-                    return None, None, None, None, None, None
+                    return None, None, None, None, None
                 mime_type = "Folder"
-                size = self.proc_bytes
+                self.listener.size = self.proc_bytes
             else:
                 file = self._copyFile(meta.get("id"), self.listener.upDest)
                 msg += f'<b>Name: </b><code>{file.get("name")}</code>'
                 durl = self.G_DRIVE_BASE_DOWNLOAD_URL.format(file.get("id"))
                 if mime_type is None:
                     mime_type = "File"
-                size = int(meta.get("size", 0))
+                self.listener.size = int(meta.get("size", 0))
             return (
                 durl,
-                size,
                 mime_type,
                 self.total_files,
                 self.total_folders,
@@ -102,7 +100,7 @@ class gdClone(GoogleDriveHelper):
             else:
                 msg = f"Error.\n{err}"
             async_to_sync(self.listener.onUploadError, msg)
-            return None, None, None, None, None, None
+            return None, None, None, None, None
 
     def _cloneFolder(self, folder_name, folder_id, dest_id):
         LOGGER.info(f"Syncing: {folder_name}")
@@ -118,7 +116,7 @@ class gdClone(GoogleDriveHelper):
             elif (
                 not file.get("name")
                 .lower()
-                .endswith(tuple(self.listener.extension_filter))
+                .endswith(tuple(self.listener.extensionFilter))
             ):
                 self.total_files += 1
                 self._copyFile(file.get("id"), dest_id)

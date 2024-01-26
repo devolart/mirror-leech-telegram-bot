@@ -138,7 +138,7 @@ async def rssSub(_, message, pre_event):
             msg += f"\nLink: <code>{last_link}</code>"
             msg += f"\n<b>Command: </b><code>{cmd}</code>"
             msg += (
-                f"\n<b>Filters:-</b>\ninf: <code>{inf}</code>\nexf: <code>{exf}<code/>"
+                f"\n<b>Filters:-</b>\ninf: <code>{inf}</code>\nexf: <code>{exf}</code>"
             )
             async with rss_dict_lock:
                 if rss_dict.get(user_id, False):
@@ -344,6 +344,8 @@ async def rssGet(_, message, pre_event):
             except Exception as e:
                 LOGGER.error(str(e))
                 await editMessage(msg, str(e))
+        else:
+            await sendMessage(message, "Enter a valid title. Title not found!")
     except Exception as e:
         LOGGER.error(str(e))
         await sendMessage(message, f"Enter a valid value!. {e}")
@@ -640,9 +642,18 @@ async def rssMonitor():
             try:
                 if data["paused"]:
                     continue
-                async with ClientSession() as session:
-                    async with session.get(data["link"], ssl=False) as res:
-                        html = await res.text()
+                tries = 0
+                while True:
+                    try:
+                        async with ClientSession() as session:
+                            async with session.get(data["link"], ssl=False) as res:
+                                html = await res.text()
+                        break
+                    except:
+                        tries += 1
+                        if tries > 3:
+                            raise
+                        continue
                 rss_d = feedparse(html)
                 try:
                     last_link = rss_d.entries[0]["links"][1]["href"]
