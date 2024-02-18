@@ -147,7 +147,7 @@ class TaskListener(TaskConfig):
 
         if self.extract:
             up_path = await self.proceedExtract(up_path, gid)
-            if self.cancelled:
+            if self.isCancelled:
                 return
             up_dir, self.name = up_path.rsplit("/", 1)
             self.size = await get_path_size(up_dir)
@@ -156,7 +156,7 @@ class TaskListener(TaskConfig):
             up_path = await self.convertMedia(
                 up_path, gid, unwanted_files, unwanted_files_size, files_to_delete
             )
-            if self.cancelled:
+            if self.isCancelled:
                 return
             up_dir, self.name = up_path.rsplit("/", 1)
             self.size = await get_path_size(up_dir)
@@ -165,7 +165,7 @@ class TaskListener(TaskConfig):
             up_path = await self.generateSampleVideo(
                 up_path, gid, unwanted_files, files_to_delete
             )
-            if self.cancelled:
+            if self.isCancelled:
                 return
             up_dir, self.name = up_path.rsplit("/", 1)
             self.size = await get_path_size(up_dir)
@@ -174,7 +174,7 @@ class TaskListener(TaskConfig):
             up_path = await self.proceedCompress(
                 up_path, gid, unwanted_files, files_to_delete
             )
-            if self.cancelled:
+            if self.isCancelled:
                 return
 
         up_dir, self.name = up_path.rsplit("/", 1)
@@ -182,7 +182,7 @@ class TaskListener(TaskConfig):
 
         if self.isLeech and not self.compress:
             await self.proceedSplit(up_dir, unwanted_files_size, unwanted_files, gid)
-            if self.cancelled:
+            if self.isCancelled:
                 return
 
         if not (self.forceRun or self.forceUpload):
@@ -193,19 +193,19 @@ class TaskListener(TaskConfig):
                 async with task_dict_lock:
                     task_dict[self.mid] = QueueStatus(self, gid, "Up")
                 await event.wait()
-                async with task_dict_lock:
-                    if self.mid not in task_dict:
-                        return
+                if self.isCancelled:
+                    return
                 LOGGER.info(f"Start from Queued/Upload: {self.name}")
         async with queue_dict_lock:
             if self.mid in non_queued_dl:
                 non_queued_dl.remove(self.mid)
             non_queued_up.add(self.mid)
 
+        self.size = await get_path_size(up_dir)
+        for s in unwanted_files_size:
+            self.size -= s
+
         if self.isLeech:
-            self.size = await get_path_size(up_dir)
-            for s in unwanted_files_size:
-                self.size -= s
             LOGGER.info(f"Leech Name: {self.name}")
             tg = TgUploader(self, up_dir)
             async with task_dict_lock:
@@ -215,9 +215,6 @@ class TaskListener(TaskConfig):
                 tg.upload(unwanted_files, files_to_delete),
             )
         elif is_gdrive_id(self.upDest):
-            self.size = await get_path_size(up_path)
-            for s in unwanted_files_size:
-                self.size -= s
             LOGGER.info(f"Gdrive Upload Name: {self.name}")
             drive = gdUpload(self, up_path)
             async with task_dict_lock:
@@ -227,9 +224,6 @@ class TaskListener(TaskConfig):
                 sync_to_async(drive.upload, unwanted_files, files_to_delete),
             )
         else:
-            self.size = await get_path_size(up_path)
-            for s in unwanted_files_size:
-                self.size -= s
             LOGGER.info(f"Rclone Upload Name: {self.name}")
             RCTransfer = RcloneTransferHelper(self)
             async with task_dict_lock:
