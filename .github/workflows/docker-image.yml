@@ -1,7 +1,10 @@
 name: Build and Push Docker Image
 
 on:
-  workflow_dispatch:  # This event triggers the workflow manually
+  push:
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
   build-and-push:
