@@ -437,8 +437,10 @@ class RcloneTransferHelper:
                     return None, destination
 
     def _getUpdatedCommand(
-        self, config_path, source, destination, method, unwanted_files=[]
+        self, config_path, source, destination, method, unwanted_files=None
     ):
+        if unwanted_files is None:
+            unwanted_files = []
         ext = "*.{" + ",".join(self._listener.extensionFilter) + "}"
         cmd = [
             "rclone",

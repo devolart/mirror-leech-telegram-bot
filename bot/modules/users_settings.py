@@ -100,6 +100,16 @@ async def get_user_settings(from_user):
     else:
         leech_method = "bot"
 
+    if (
+        IS_PREMIUM_USER
+        and user_dict.get("mixed_leech", False)
+        or "mixed_leech" not in user_dict
+        and config_dict["MIXED_LEECH"]
+    ):
+        mixed_leech = "Enabled"
+    else:
+        mixed_leech = "Disabled"
+
     buttons.ibutton("Leech", f"userset {user_id} leech")
 
     buttons.ibutton("Rclone", f"userset {user_id} rclone")
@@ -129,7 +139,7 @@ async def get_user_settings(from_user):
     else:
         sd_msg = "Disabled"
 
-    upload_paths = "Exists" if user_dict.get("upload_paths", False) else "Not Exists"
+    upload_paths = "Added" if user_dict.get("upload_paths", False) else "None"
     buttons.ibutton("Upload Paths", f"userset {user_id} upload_paths")
 
     default_upload = (
@@ -147,6 +157,9 @@ async def get_user_settings(from_user):
     else:
         ex_ex = "None"
 
+    ns_msg = "Added" if user_dict.get("name_sub", False) else "None"
+    buttons.ibutton("Name Subtitute", f"userset {user_id} name_subtitute")
+
     buttons.ibutton("YT-DLP Options", f"userset {user_id} yto")
     if user_dict.get("yt_opt", False):
         ytopt = user_dict["yt_opt"]
@@ -154,8 +167,10 @@ async def get_user_settings(from_user):
         ytopt = YTO
     else:
         ytopt = "None"
+
     if user_dict:
         buttons.ibutton("Reset All", f"userset {user_id} reset")
+
     buttons.ibutton("Close", f"userset {user_id} close")
 
     text = f"""<u>Settings for {name}</u>
@@ -167,6 +182,7 @@ Media Group is <b>{media_group}</b>
 Leech Prefix is <code>{escape(lprefix)}</code>
 Leech Destination is <code>{leech_dest}</code>
 Leech by <b>{leech_method}</b> session
+Mixed Leech is <b>{mixed_leech}</b>
 Rclone Config <b>{rccmsg}</b>
 Rclone Path is <code>{rccpath}</code>
 Gdrive Token <b>{tokenmsg}</b>
@@ -175,6 +191,7 @@ Gdrive ID is <code>{gdrive_id}</code>
 Index Link is <code>{index}</code>
 Stop Duplicate is <b>{sd_msg}</b>
 Default Upload is <b>{du}</b>
+Name substitution is <b>{ns_msg}</b>
 Excluded Extensions is <code>{ex_ex}</code>
 YT-DLP Options is <b><code>{escape(ytopt)}</code></b>"""
 
@@ -329,6 +346,7 @@ async def edit_user_settings(client, query):
         "media_group",
         "user_transmission",
         "stop_duplicate",
+        "mixed_leech",
     ]:
         update_user_ldata(user_id, data[2], data[3] == "true")
         await query.answer()
@@ -352,7 +370,13 @@ async def edit_user_settings(client, query):
         else:
             await query.answer("Old Settings", show_alert=True)
             await update_user_settings(query)
-    elif data[2] in ["yt_opt", "lprefix", "index_url", "excluded_extensions"]:
+    elif data[2] in [
+        "yt_opt",
+        "lprefix",
+        "index_url",
+        "excluded_extensions",
+        "name_sub",
+    ]:
         await query.answer()
         update_user_ldata(user_id, data[2], "")
         await update_user_settings(query)
@@ -445,6 +469,25 @@ async def edit_user_settings(client, query):
             )
         else:
             leech_method = "bot"
+
+        if (
+            IS_PREMIUM_USER
+            and user_dict.get("mixed_leech", False)
+            or "mixed_leech" not in user_dict
+            and config_dict["MIXED_LEECH"]
+        ):
+            mixed_leech = "Enabled"
+            buttons.ibutton(
+                "Disable Mixed Leech", f"userset {user_id} mixed_leech false"
+            )
+        elif IS_PREMIUM_USER:
+            mixed_leech = "Disabled"
+            buttons.ibutton(
+                "Enable Mixed Leech", f"userset {user_id} mixed_leech true"
+            )
+        else:
+            mixed_leech = "Disabled"
+
         buttons.ibutton("Back", f"userset {user_id} back")
         buttons.ibutton("Close", f"userset {user_id} close")
         text = f"""<u>Leech Settings for {name}</u>
@@ -456,6 +499,7 @@ Media Group is <b>{media_group}</b>
 Leech Prefix is <code>{escape(lprefix)}</code>
 Leech Destination is <code>{leech_dest}</code>
 Leech by <b>{leech_method}</b> session
+Mixed Leech is <b>{mixed_leech}</b>
 """
         await editMessage(message, text, buttons.build_menu(2))
     elif data[2] == "rclone":
@@ -675,6 +719,30 @@ Check all yt-dlp api options from this <a href='https://github.com/yt-dlp/yt-dlp
             buttons.build_menu(1),
         )
         pfunc = partial(set_option, pre_event=query, option="excluded_extensions")
+        await event_handler(client, query, pfunc)
+    elif data[2] == "name_subtitute":
+        await query.answer()
+        buttons = ButtonMaker()
+        if user_dict.get(data[2], False):
+            buttons.ibutton("Remove Name Subtitute", f"userset {user_id} name_sub")
+        buttons.ibutton("Back", f"userset {user_id} back")
+        buttons.ibutton("Close", f"userset {user_id} close")
+        emsg = f"""Word Subtitions. You can add pattern instead of normal text. Timeout: 60 sec
+Example: 'text : code : s|mirror : leech|tea :  : s|clone'
+
+1. text will get replaced by code with sensitive case
+2. mirror will get replaced by leech
+4. tea will get removed with sensitive case
+5. clone will get removed
+
+Your Current Value is {user_dict.get('name_sub') or 'not added yet!'}
+"""
+        await editMessage(
+            message,
+            emsg,
+            buttons.build_menu(1),
+        )
+        pfunc = partial(set_option, pre_event=query, option="name_sub")
         await event_handler(client, query, pfunc)
     elif data[2] in ["gd", "rc"]:
         await query.answer()
